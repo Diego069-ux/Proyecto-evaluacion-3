@@ -3,13 +3,12 @@
 import sys
 import os
 
-# Añadir la carpeta AUXILIARES al sys.path
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'AUXILIARES')))
 
 # Verifica si la carpeta AUXILIARES está en el sys.path
 print(sys.path)
 
-# Intentar importar el archivo config.py que ahora debería ser reconocido
 from config import DB_CONFIG
 
 # Verifica que DB_CONFIG fue importado correctamente
@@ -26,6 +25,6 @@ class DBManager:
         return pymysql.connect(
             host=DB_CONFIG["host"],
             user=DB_CONFIG["user"],
-            password=DB_CONFIG.get("password", ""),  # Utiliza el valor vacío si no hay contraseña
+            password=DB_CONFIG.get("password", ""), 
             db=DB_CONFIG["database"]
         )
