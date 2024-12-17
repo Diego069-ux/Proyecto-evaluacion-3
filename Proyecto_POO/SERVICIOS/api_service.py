@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from MODELOS.post import db, Post  # Ahora se puede importar correctamente
+from MODELOS.post import db, Post  # importación
 
 class PostService:
     @staticmethod
