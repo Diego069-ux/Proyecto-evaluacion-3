@@ -4,7 +4,6 @@ import os
 # Añadir la carpeta raíz al sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Ahora puedes importar el módulo SERVICIOS
 from SERVICIOS.api_service import PostService
 
 def crear_nuevo_post(title, body, userId):
