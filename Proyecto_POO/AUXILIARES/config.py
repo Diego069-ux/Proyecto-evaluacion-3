@@ -2,8 +2,6 @@
 
 DB_CONFIG = {
     "host": "localhost",
-    "user": "root",
-    "password": "",  # en este caso no hay contraseña
-    "database": "evaluacion3"
-}
-
+    "user": "root",  # Usar el usuario 'root'
+    "password": "",  # Dejar la contraseña vacía si no tiene contraseña
+    "database": "evaluacion3"}
