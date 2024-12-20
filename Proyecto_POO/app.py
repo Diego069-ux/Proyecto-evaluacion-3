@@ -1,97 +1,114 @@
-import bcrypt
-import requests
-from flask import Flask, request, jsonify
+import sys
+import os
+from cryptography.fernet import Fernet
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from requests.auth import HTTPBasicAuth
+from SERVICIOS.api_service import PostService
 
-# Inicializar la app de Flask
+# Asegurando que la carpeta raíz esté en el path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+
+# Configuración de la app Flask para usar MySQL
 app = Flask(__name__)
-
-# Configuración de la base de datos MySQL con SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://usuario:contraseña@localhost/mi_basededatos'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:@localhost/evaluacion3'  # Base de datos MySQL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializar la base de datos
-db = SQLAlchemy(app)
+# Inicializar la instancia de SQLAlchemy
+db = SQLAlchemy()
 
-# Modelo Post (corresponde a la tabla 'posts' en la base de datos)
-class Post(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    body = db.Column(db.Text, nullable=False)
+# Se asegura de registrar la aplicación con la instancia de SQLAlchemy
+db.init_app(app)
 
-# Ruta para encriptar y desencriptar contraseñas
-@app.route('/encriptar', methods=['POST'])
-def encriptar_contraseña():
-    # Solicitar al usuario la contraseña
-    password = request.json.get('password')
-    print(f'Contraseña ingresada: {password}')
-    
-    # Encriptar la contraseña
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    print(f'Contraseña encriptada: {hashed}')
-    
-    # Desencriptar y comparar
-    if bcrypt.checkpw(password.encode('utf-8'), hashed):
-        print('La contraseña coincide con la original.')
-    else:
-        print('La contraseña no coincide.')
-    
-    return jsonify({'mensaje': 'Proceso de encriptación y desencriptación completado'})
+# Función para cargar la clave desde el archivo
+def cargar_clave():
+    with open("clave.key", "rb") as archivo_clave:
+        return archivo_clave.read()
 
-# Ruta para obtener los datos desde la API y almacenarlos en la base de datos
-@app.route('/obtener-datos', methods=['GET'])
-def obtener_datos():
-    # Hacer una solicitud GET a la API de jsonplaceholder
-    response = requests.get('https://jsonplaceholder.typicode.com/posts')
-    
-    if response.status_code == 200:
-        # Almacenar los datos en la base de datos
-        posts_data = response.json()
+# Función para encriptar una cadena
+def encriptar_cadena(cadena):
+    clave = cargar_clave()  # Cargar la clave desde el archivo
+    fernet = Fernet(clave)
+    return fernet.encrypt(cadena.encode())
+
+# Función para desencriptar una cadena
+def desencriptar_cadena(cadena_encriptada):
+    clave = cargar_clave()  # Cargar la clave desde el archivo
+    fernet = Fernet(clave)
+    return fernet.decrypt(cadena_encriptada).decode()
+
+@app.route('/')
+def inicio():
+    return """
+    <h1>Bienvenido a la API</h1>
+    <p>Para probar las funcionalidades, acceda a las siguientes rutas:</p>
+    <ul>
+        <li><a href="/posts">/posts</a>: Obtiene una lista de posts.</li>
+        <li><a href="/encriptacion">/encriptacion</a>: Encripta y desencripta una cadena (solicitud POST).</li>
+    </ul>
+    """
+
+@app.route('/posts', methods=['GET'])
+def obtener_posts():
+    try:
+        with app.app_context():  # Asegurando el contexto de la app aquí
+            posts = PostService.obtener_posts()  # Llama al servicio para obtener los posts
+            if posts:
+                posts_list = [{"id": post.id, "title": post.title, "body": post.body} for post in posts]
+                print(f"Posts encontrados: {posts_list}")  # Depuración en la consola
+                return jsonify(posts_list), 200
+            else:
+                print("No se encontraron posts")  # Depuración en la consola
+                return jsonify({"message": "No posts found"}), 404
+    except Exception as e:
+        print(f"Error obteniendo posts: {e}")  # Depuración en caso de error
+        return jsonify({"error": "Error al obtener los posts"}), 500
+
+@app.route('/encriptacion', methods=['GET', 'POST'])
+def encriptar_y_desencriptar():
+    if request.method == 'GET':
+        return """
+        <h1>Encriptar y Desencriptar</h1>
+        <form method="POST">
+            <label for="cadena">Introduce una cadena para encriptar:</label><br>
+            <input type="text" id="cadena" name="cadena" required><br><br>
+            <input type="submit" value="Enviar">
+        </form>
+        """
+    try:
+        # Si la solicitud es POST, procesamos el formulario
+        cadena_original = request.form['cadena']
+        print(f"Texto original: {cadena_original}")
         
-        for post_data in posts_data:
-            nuevo_post = Post(title=post_data['title'], body=post_data['body'])
-            db.session.add(nuevo_post)
+        # Encriptar la cadena
+        cadena_encriptada = encriptar_cadena(cadena_original)
+        print(f"\nCadena encriptada: {cadena_encriptada}")
         
-        db.session.commit()
-        
-        # Consultar los datos de la base de datos
-        posts = Post.query.all()
-        posts_list = [{'id': post.id, 'title': post.title, 'body': post.body} for post in posts]
-        
-        return jsonify(posts_list), 200
-    else:
-        return jsonify({'mensaje': 'Error al obtener los datos de la API'}), 500
+        # Desencriptar la cadena
+        cadena_desencriptada = desencriptar_cadena(cadena_encriptada)
+        print(f"Cadena desencriptada: {cadena_desencriptada}")
 
-# Ruta para hacer un envío de data mediante POST a la API
-@app.route('/enviar-datos', methods=['POST'])
-def enviar_datos():
-    # Solicitar datos al usuario para crear un objeto
-    title = request.json.get('title')
-    body = request.json.get('body')
-    
-    # Crear el objeto en la API
-    payload = {'title': title, 'body': body, 'userId': 1}
-    response = requests.post('https://jsonplaceholder.typicode.com/posts', json=payload)
-    
-    if response.status_code == 201:
-        return jsonify({'mensaje': 'Objeto creado correctamente en la API'}), 200
-    else:
-        return jsonify({'mensaje': 'Error al crear el objeto en la API'}), 500
+        return """
+        <h1>Resultado de Encriptación y Desencriptación</h1>
+        <p><strong>Texto original:</strong> {}</p>
+        <p><strong>Cadena encriptada:</strong> {}</p>
+        <p><strong>Cadena desencriptada:</strong> {}</p>
+        <br>
+        <a href="/encriptacion">Volver a probar</a>
+        """.format(cadena_original, cadena_encriptada.decode(), cadena_desencriptada)
+    except Exception as e:
+        print(f"Ha ocurrido un error: {e}")
+        return jsonify({"error": f"Ha ocurrido un error: {str(e)}"}), 500
 
-# Ruta para hacer una solicitud HTTP con autenticación a la API Serper
-@app.route('/buscar-google', methods=['POST'])
-def buscar_google():
-    # Solicitar al usuario el string de búsqueda
-    query = request.json.get('query')
-    api_key = 'tu_api_key'  # Sustituir con tu clave de API de Serper
-    
-    # Realizar la solicitud GET con autenticación
-    headers = {'Authorization': f'Bearer {api_key}'}
-    response = requests.get(f'https://api.serper.dev/search?q={query}', headers=headers)
-    
-    if response.status_code == 200:
-        results = response.json()
-        return jsonify(results), 200
-    else:
-        return
+if __name__ == '__main__':
+    with app.app_context():  # Garantizar que el contexto de la app esté activo
+        try:
+            db.engine.connect()  # Intenta realizar una conexión con la base de datos
+            print("Conexión exitosa a la base de datos.")
+        except Exception as e:
+            print(f"Error de conexión a la base de datos: {e}")
+
+        # Crear tablas si no existen
+        db.create_all()
+
+    # Ejecutar la aplicación Flask
+    app.run(debug=True)
