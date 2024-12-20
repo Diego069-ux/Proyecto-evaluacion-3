@@ -1,4 +1,6 @@
 Proyecto POO - Encriptación, API y Solicitudes HTTP
+
+
 Este proyecto implementa conceptos de Programación Orientada a Objetos (POO) usando Flask, MySQL (a través de XAMPP y phpMyAdmin) y SQLAlchemy.
 
 Funcionalidades
