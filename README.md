@@ -9,8 +9,8 @@ Envío de Datos: Crea objetos mediante solicitudes POST a la API jsonplaceholder
 
 ## Requisitos
 
-**Python 3.9+
-**MySQL Server (con XAMPP)
+Python actualizado
+MySQL Server (con XAMPP)
 
 ## Bibliotecas
 Instalar las dependencias utilizando pip:
