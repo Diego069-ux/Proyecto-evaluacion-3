@@ -7,21 +7,21 @@ Encriptación de Contraseña: Encripta y verifica contraseñas con Fernet y bcry
 Obtención de Datos: Realiza solicitudes GET a la API jsonplaceholder y almacena datos en MySQL.
 Envío de Datos: Crea objetos mediante solicitudes POST a la API jsonplaceholder.
 
-Requisitos
+## Requisitos
 
-Python 3.9+
-MySQL Server (con XAMPP)
+**Python 3.9+
+**MySQL Server (con XAMPP)
 
-Bibliotecas
+## Bibliotecas
 Instalar las dependencias utilizando pip:
 
 pip install flask flask-sqlalchemy cryptography requests pymysql bcrypt
 
-Base de Datos
+## Base de Datos
 
-Crear la base de datos evaluacion3:
+**Crear la base de datos evaluacion3:
 
-CREATE DATABASE evaluacion3;
+**CREATE DATABASE evaluacion3;
 
 Archivo clave.key: Generar con el siguiente código:
 
