@@ -19,9 +19,9 @@ pip install flask flask-sqlalchemy cryptography requests pymysql bcrypt
 
 ## Base de Datos
 
-**Crear la base de datos evaluacion3:
+** Crear la base de datos evaluacion3:
 
-**CREATE DATABASE evaluacion3;
+** CREATE DATABASE evaluacion3;
 
 Archivo clave.key: Generar con el siguiente código:
 
