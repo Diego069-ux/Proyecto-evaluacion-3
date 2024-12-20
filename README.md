@@ -31,8 +31,7 @@ with open("clave.key", "wb") as f:
 
 ## Clonar el repositorio:
 
-git clone https://github.com/Diego069-ux/proyecto-poo.git
-cd proyecto-poo
+https://github.com/Diego069-ux/Proyecto-evaluacion-3
 
 Configurar el archivo AUXILIARES/config.py para la conexión con MySQL.
 
