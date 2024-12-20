@@ -1,23 +1,24 @@
 import sys
 import os
 from cryptography.fernet import Fernet
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from SERVICIOS.api_service import PostService
+from sqlalchemy import text
 
 # Asegurando que la carpeta raíz esté en el path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-# Configuración de la app Flask
+# Configuración de la app Flask para usar MySQL
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'  # Base de datos local
-db = SQLAlchemy(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:@localhost/evaluacion3'  # Base de datos MySQL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Función para generar la clave (solo ejecutar una vez)
-def generar_clave():
-    clave = Fernet.generate_key()
-    with open("clave.key", "wb") as clave_archivo:
-        clave_archivo.write(clave)
+# Inicializar la instancia de SQLAlchemy
+db = SQLAlchemy()
+
+# Inicializamos db con la app
+db.init_app(app)
 
 # Función para cargar la clave desde el archivo
 def cargar_clave():
@@ -36,20 +37,50 @@ def desencriptar_cadena(cadena_encriptada):
     fernet = Fernet(clave)
     return fernet.decrypt(cadena_encriptada).decode()
 
+@app.route('/')
+def inicio():
+    return """
+    <h1>Bienvenido a la API</h1>
+    <p>Para probar las funcionalidades, acceda a las siguientes rutas:</p>
+    <ul>
+        <li><a href="/posts">/posts</a>: Obtiene una lista de posts.</li>
+        <li><a href="/encriptar">/encriptar</a>: Encripta y desencripta una cadena (solicitud POST).</li>
+    </ul>
+    """
+
 @app.route('/posts', methods=['GET'])
 def obtener_posts():
-    posts = PostService.obtener_posts()
-    if posts:
-        posts_list = [{"id": post.id, "title": post.title, "body": post.body} for post in posts]
-        return jsonify(posts_list), 200
-    else:
-        return jsonify({"message": "No posts found"}), 404
-
-# Ruta para encriptar y desencriptar una cadena
-@app.route('/encriptar', methods=['POST'])
-def encriptar_y_desencriptar():
     try:
-        cadena_original = "Este es un texto que se va a encriptar"
+        with app.app_context():  # Asegurando el contexto de la app aquí
+            posts = PostService.obtener_posts()  # Llama al servicio para obtener los posts
+            if posts:
+                posts_list = [{"id": post.id, "title": post.title, "body": post.body} for post in posts]
+                print(f"Posts encontrados: {posts_list}")  # Depuración en la consola
+                return jsonify(posts_list), 200
+            else:
+                # Si no se encuentran posts, obtener toda la tabla 'posts' y devolverla
+                all_posts = db.session.execute(text('SELECT * FROM posts')).fetchall()
+                all_posts_list = [{"id": post[0], "title": post[1], "body": post[2]} for post in all_posts]
+                print(f"Mostrando toda la tabla de posts: {all_posts_list}")  # Depuración en la consola
+                return jsonify(all_posts_list), 200
+    except Exception as e:
+        print(f"Error obteniendo posts: {e}")  # Depuración en caso de error
+        return jsonify({"error": f"Hubo un problema al obtener los posts: {e}"}), 500
+
+@app.route('/encriptar', methods=['GET', 'POST'])
+def encriptar_y_desencriptar():
+    if request.method == 'GET':
+        return """
+        <h1>Encriptar y Desencriptar</h1>
+        <form method="POST">
+            <label for="cadena">Introduce una cadena para encriptar:</label><br>
+            <input type="text" id="cadena" name="cadena" required><br><br>
+            <input type="submit" value="Enviar">
+        </form>
+        """
+    try:
+        # Si la solicitud es POST, procesamos el formulario
+        cadena_original = request.form['cadena']
         print(f"Texto original: {cadena_original}")
         
         # Encriptar la cadena
@@ -60,15 +91,28 @@ def encriptar_y_desencriptar():
         cadena_desencriptada = desencriptar_cadena(cadena_encriptada)
         print(f"Cadena desencriptada: {cadena_desencriptada}")
 
-        # Devolver la respuesta con la información de encriptación
-        return jsonify({
-            "cadena_original": cadena_original,
-            "cadena_encriptada": cadena_encriptada.decode(),
-            "cadena_desencriptada": cadena_desencriptada
-        }), 200
+        return """
+        <h1>Resultado de Encriptación y Desencriptación</h1>
+        <p><strong>Texto original:</strong> {}</p>
+        <p><strong>Cadena encriptada:</strong> {}</p>
+        <p><strong>Cadena desencriptada:</strong> {}</p>
+        <br>
+        <a href="/encriptar">Volver a probar</a>
+        """.format(cadena_original, cadena_encriptada.decode(), cadena_desencriptada)
     except Exception as e:
         print(f"Ha ocurrido un error: {e}")
-        return jsonify({"error": "Ha ocurrido un error"}), 500
+        return jsonify({"error": f"Ha ocurrido un error: {str(e)}"}), 500
 
 if __name__ == '__main__':
+    with app.app_context():  # Garantizar que el contexto de la app esté activo
+        try:
+            db.engine.connect()  # Intenta realizar una conexión con la base de datos
+            print("Conexión exitosa a la base de datos.")
+        except Exception as e:
+            print(f"Error de conexión a la base de datos: {e}")
+
+        # Crear tablas si no existen
+        db.create_all()
+
+    # Ejecutar la aplicación Flask
     app.run(debug=True)
