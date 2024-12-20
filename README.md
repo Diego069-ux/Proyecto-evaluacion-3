@@ -19,24 +19,24 @@ pip install flask flask-sqlalchemy cryptography requests pymysql bcrypt
 
 ## Base de Datos
 
-** Crear la base de datos evaluacion3:
+Crear la base de datos evaluacion3:
 
-** CREATE DATABASE evaluacion3;
+CREATE DATABASE evaluacion3;
 
-Archivo clave.key: Generar con el siguiente código:
+## Archivo clave.key: Generar con el siguiente código:
 
 from cryptography.fernet import Fernet
 with open("clave.key", "wb") as f:
     f.write(Fernet.generate_key())
 
-Clonar el repositorio:
+## Clonar el repositorio:
 
-git clone https://github.com/tu-usuario/proyecto-poo.git
+git clone https://github.com/Diego069-ux/proyecto-poo.git
 cd proyecto-poo
 
 Configurar el archivo AUXILIARES/config.py para la conexión con MySQL.
 
-Iniciar la aplicación:
+## Iniciar la aplicación:
 
 python main.py
 
