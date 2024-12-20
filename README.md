@@ -1,8 +1,8 @@
-##Proyecto POO - Encriptación, API y Solicitudes HTTP
+# Proyecto POO - Encriptación, API y Solicitudes HTTP
 
 Este proyecto implementa procesos clave de Programación Orientada a Objetos (POO) utilizando Flask, MySQL y SQLAlchemy.
 
-Funcionalidades
+## Funcionalidades
 Encriptación de Contraseña: Encripta y verifica contraseñas con Fernet y bcrypt.
 Obtención de Datos: Realiza solicitudes GET a la API jsonplaceholder y almacena datos en MySQL.
 Envío de Datos: Crea objetos mediante solicitudes POST a la API jsonplaceholder.
