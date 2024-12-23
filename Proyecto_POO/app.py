@@ -1,11 +1,15 @@
 import sys
 import os
+import logging
 from cryptography.fernet import Fernet
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from SERVICIOS.api_service import PostService
+import requests
 
-# Asegurando que la carpeta raíz esté en el path
+# Configuración de Logs
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 # Configuración de la app Flask para usar MySQL
@@ -26,16 +30,48 @@ def cargar_clave():
 
 # Función para encriptar una cadena
 def encriptar_cadena(cadena):
-    clave = cargar_clave()  # Cargar la clave desde el archivo
+    clave = cargar_clave()
     fernet = Fernet(clave)
     return fernet.encrypt(cadena.encode())
 
 # Función para desencriptar una cadena
 def desencriptar_cadena(cadena_encriptada):
-    clave = cargar_clave()  # Cargar la clave desde el archivo
+    clave = cargar_clave()
     fernet = Fernet(clave)
     return fernet.decrypt(cadena_encriptada).decode()
 
+# Modelo Post
+class Post(db.Model):
+    __tablename__ = 'posts'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    comments = db.relationship('Comment', back_populates='post', cascade='all, delete-orphan')
+
+# Modelo Comment
+class Comment(db.Model):
+    __tablename__ = 'comments'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    content = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=False)
+    post = db.relationship('Post', back_populates='comments')
+
+# Servicio externo simulado
+class ExternalService:
+    BASE_URL = 'https://jsonplaceholder.typicode.com/posts'
+
+    @staticmethod
+    def obtener_posts():
+        try:
+            response = requests.get(ExternalService.BASE_URL)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Error al obtener posts externos: {e}")
+            return None
+
+# Rutas
 @app.route('/')
 def inicio():
     return """
@@ -50,17 +86,16 @@ def inicio():
 @app.route('/posts', methods=['GET'])
 def obtener_posts():
     try:
-        with app.app_context():  # Asegurando el contexto de la app aquí
-            posts = PostService.obtener_posts()  # Llama al servicio para obtener los posts
-            if posts:
-                posts_list = [{"id": post.id, "title": post.title, "body": post.body} for post in posts]
-                print(f"Posts encontrados: {posts_list}")  # Depuración en la consola
-                return jsonify(posts_list), 200
-            else:
-                print("No se encontraron posts")  # Depuración en la consola
-                return jsonify({"message": "No posts found"}), 404
+        # Obtener posts desde el servicio externo
+        posts = ExternalService.obtener_posts()
+        if posts:
+            logger.info(f"Posts externos obtenidos: {len(posts)}")
+            return jsonify(posts), 200
+        else:
+            logger.warning("No se encontraron posts externos")
+            return jsonify({"message": "No posts found"}), 404
     except Exception as e:
-        print(f"Error obteniendo posts: {e}")  # Depuración en caso de error
+        logger.error(f"Error obteniendo posts: {e}")
         return jsonify({"error": "Error al obtener los posts"}), 500
 
 @app.route('/encriptacion', methods=['GET', 'POST'])
@@ -75,17 +110,14 @@ def encriptar_y_desencriptar():
         </form>
         """
     try:
-        # Si la solicitud es POST, procesamos el formulario
         cadena_original = request.form['cadena']
-        print(f"Texto original: {cadena_original}")
+        logger.info(f"Texto original: {cadena_original}")
         
-        # Encriptar la cadena
         cadena_encriptada = encriptar_cadena(cadena_original)
-        print(f"\nCadena encriptada: {cadena_encriptada}")
+        logger.info(f"Cadena encriptada: {cadena_encriptada}")
         
-        # Desencriptar la cadena
         cadena_desencriptada = desencriptar_cadena(cadena_encriptada)
-        print(f"Cadena desencriptada: {cadena_desencriptada}")
+        logger.info(f"Cadena desencriptada: {cadena_desencriptada}")
 
         return """
         <h1>Resultado de Encriptación y Desencriptación</h1>
@@ -96,19 +128,17 @@ def encriptar_y_desencriptar():
         <a href="/encriptacion">Volver a probar</a>
         """.format(cadena_original, cadena_encriptada.decode(), cadena_desencriptada)
     except Exception as e:
-        print(f"Ha ocurrido un error: {e}")
+        logger.error(f"Error en la encriptación/desencriptación: {e}")
         return jsonify({"error": f"Ha ocurrido un error: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    with app.app_context():  # Garantizar que el contexto de la app esté activo
+    with app.app_context():
         try:
-            db.engine.connect()  # Intenta realizar una conexión con la base de datos
-            print("Conexión exitosa a la base de datos.")
+            db.engine.connect()
+            logger.info("Conexión exitosa a la base de datos.")
         except Exception as e:
-            print(f"Error de conexión a la base de datos: {e}")
+            logger.error(f"Error de conexión a la base de datos: {e}")
 
-        # Crear tablas si no existen
         db.create_all()
 
-    # Ejecutar la aplicación Flask
     app.run(debug=True)
